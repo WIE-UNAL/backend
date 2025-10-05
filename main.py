@@ -1,8 +1,21 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware  # ✅ Importar CORS
 import httpx
 from typing import Dict, Any
 
 app = FastAPI(title="Event Title API", version="1.0.0")
+
+# ✅ Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://wie-unal.vercel.app",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
@@ -14,22 +27,17 @@ async def get_event_title(event_id: str):
     Obtiene el título de un evento específico de la API de IEEE
     """
     try:
-        # URL de la API externa con el ID dinámico
         api_url = f"https://events.vtools.ieee.org/RST/events/api/public/v6/events/list?id={event_id}"
         
-        # Realizar la llamada HTTP
         async with httpx.AsyncClient() as client:
             response = await client.get(api_url)
-            response.raise_for_status()  # Lanza excepción si hay error HTTP
+            response.raise_for_status()
             
-        # Parsear la respuesta JSON
         data = response.json()
         
-        # Verificar que existe la estructura esperada
         if not data.get("data") or len(data["data"]) == 0:
             raise HTTPException(status_code=404, detail="Event not found")
         
-        # Extraer el título del primer evento
         event_data = data["data"][0]
         title = event_data["attributes"]["title"]
         
@@ -47,23 +55,6 @@ async def get_event_title(event_id: str):
         raise HTTPException(status_code=500, detail=f"Unexpected response format: missing {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
-
-@app.get("/event/{event_id}/full")
-async def get_event_full_data(event_id: str):
-    """
-    Obtiene toda la información del evento (opcional para debugging)
-    """
-    try:
-        api_url = f"https://events.vtools.ieee.org/RST/events/api/public/v6/events/list?id={event_id}"
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.get(api_url)
-            response.raise_for_status()
-            
-        return response.json()
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {e}")
 
 # Para Vercel
 if __name__ == "__main__":
